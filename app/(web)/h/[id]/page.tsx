@@ -18,10 +18,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <article>
           <header className="mb-6">
             <h1 className="text-2xl font-semibold">{handoff.title}</h1>
-            {handoff.summary && <p className="text-[var(--color-muted)] mt-1">{handoff.summary}</p>}
+            {handoff.summary && <p className="text-muted-foreground mt-1">{handoff.summary}</p>}
             <div className="mt-3 flex items-center gap-2">
               <StatusBadge status={handoff.status} />
-              <span className="font-mono text-xs text-[var(--color-muted)]">{handoff.id}</span>
+              <span className="font-mono text-xs text-muted-foreground">{handoff.id}</span>
             </div>
           </header>
           <Markdown>{handoff.body}</Markdown>
@@ -58,7 +58,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-[var(--color-muted)]">{title}</div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{title}</div>
       <div>{children}</div>
     </div>
   );

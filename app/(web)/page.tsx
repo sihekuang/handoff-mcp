@@ -28,7 +28,7 @@ export default async function HandoffsPage({ searchParams }: {
         <FilterBar />
       </div>
       {page.items.length === 0 ? (
-        <p className="text-sm text-[var(--color-muted)]">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           No handoffs yet. Have an agent call <code>create_handoff</code> via the MCP server at <code>/mcp</code>.
         </p>
       ) : (
@@ -48,7 +48,7 @@ export default async function HandoffsPage({ searchParams }: {
               <TableRow key={i.id}>
                 <TableCell>
                   <Link href={`/h/${i.id}`} className="font-medium hover:underline">{i.title}</Link>
-                  {i.summary && <div className="text-sm text-[var(--color-muted)] line-clamp-1">{i.summary}</div>}
+                  {i.summary && <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{i.summary}</div>}
                 </TableCell>
                 <TableCell><StatusBadge status={i.status} /></TableCell>
                 <TableCell className="text-sm">{i.project ?? "—"}</TableCell>

@@ -20,7 +20,8 @@ test.beforeAll(async ({ request }) => {
 test("list page renders the seeded handoff", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Handoffs", level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: /E2E smoke handoff/ })).toBeVisible();
+  // Pin to the specific handoff created in beforeAll by its unique href.
+  await expect(page.locator(`a[href="/h/${createdId}"]`)).toBeVisible();
 });
 
 test("detail page renders the body and git metadata", async ({ page }) => {

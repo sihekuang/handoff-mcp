@@ -1,8 +1,8 @@
 // tests/mcp/tools.test.ts
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { freshDb } from "@/tests/helpers/db";
-import { registerHandoffTools } from "@/lib/mcp/tools";
 import type { Actor } from "@/lib/auth/types";
+import type { DB } from "@/lib/db";
 import type { Pool } from "pg";
 
 type Captured = { name: string; description: string; inputShape: any; handler: (input: any) => Promise<any> };
@@ -22,16 +22,24 @@ function makeServer() {
 }
 
 describe("MCP handoff tools", () => {
+  let db: DB;
   let pool: Pool;
   let actor: Actor;
+  let registerHandoffTools: typeof import("@/lib/mcp/tools").registerHandoffTools;
 
   beforeAll(async () => {
-    const out = await freshDb();
-    pool = out.pool;
-    // Use the dev_user that the migration seeds — no extra seedUser needed.
-    actor = { kind: "user", userId: "dev_user" };
+    ({ db, pool } = await freshDb());
+    actor = { kind: "user", userId: "dev_user" };  // seeded by migration 0001
+    // Tools internally call into service → repo → `db` from @/lib/db (singleton).
+    // The singleton's pool was created at module-eval time before DATABASE_URL
+    // was set by the testcontainer setup, so it points at a stale connection.
+    // Same trick the API tests use: resetModules + doMock @/lib/db so the
+    // tools file picks up the freshDb pool when we dynamically import below.
+    vi.resetModules();
+    vi.doMock("@/lib/db", () => ({ db }));
+    ({ registerHandoffTools } = await import("@/lib/mcp/tools"));
   });
-  afterAll(async () => { await pool?.end(); });
+  afterAll(async () => { await pool?.end(); vi.doUnmock("@/lib/db"); });
 
   it("registers all six tools with descriptions", () => {
     const server = makeServer();
@@ -51,7 +59,7 @@ describe("MCP handoff tools", () => {
     const byName = Object.fromEntries(server.tools.map((t) => [t.name, t]));
 
     const created = await byName.create_handoff.handler({ title: "T", body: "B" });
-    expect(created.isError).toBeUndefined();
+    expect(created.isError, JSON.stringify(created)).toBeUndefined();
     const createdHandoff = JSON.parse(created.content[0].text);
     expect(createdHandoff.id).toMatch(/^h_[0-9a-z]{10}$/);
 

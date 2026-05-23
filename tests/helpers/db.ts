@@ -19,5 +19,14 @@ export async function freshDb() {
   `).catch(() => undefined); // ignore if no tables yet
 
   await migrate(db, { migrationsFolder: "./db/migrations" });
+
+  // Seed the hardcoded dev actor so the handoffs.user_id FK resolves in tests.
+  // Idempotent: ON CONFLICT DO NOTHING.
+  await pool.query(`
+    INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at)
+    VALUES ('dev_user', 'Dev User', 'dev@handoff-mcp.local', true, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `);
+
   return { db, pool };
 }

@@ -1,6 +1,14 @@
+// lib/auth/client.ts
+//
+// AUTH DEFERRED: this Better Auth React client is built but unused.
+// It's the bridge for an eventual /login page (GitHub OAuth + magic-link).
+// Once Phase 6's login route is built, app/(web)/login/page.tsx will
+// import authClient.signIn.social({ provider: "github" }) and
+// authClient.signIn.magicLink({ email }) from here.
+//
+// Leaving in tree so the auth wire-up is a one-file change.
+
 "use client";
-// NOTE: `createAuthClient` lives in "better-auth/react" (not "better-auth/react").
-// `magicLinkClient` is exported from "better-auth/client/plugins".
 import { createAuthClient } from "better-auth/react";
 import { magicLinkClient } from "better-auth/client/plugins";
 

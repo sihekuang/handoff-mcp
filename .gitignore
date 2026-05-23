@@ -1,0 +1,13 @@
+node_modules
+.next
+.vercel
+.env
+.env.local
+.env*.local
+.DS_Store
+
+# Brainstorm companion artifacts
+.superpowers/
+
+# Drizzle
+drizzle/

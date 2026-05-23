@@ -8,7 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { users } from "@/lib/auth/schema";
+import { user } from "@/lib/auth/schema";
 
 export const handoffStatus = pgEnum("handoff_status", ["open", "in_progress", "done"]);
 
@@ -20,7 +20,7 @@ export type HandoffMetadata = {
 
 export const handoffs = pgTable("handoffs", {
   id:        text("id").primaryKey(),
-  userId:    text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId:    text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   title:     text("title").notNull(),
   summary:   text("summary"),
   body:      text("body").notNull(),

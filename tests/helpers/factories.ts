@@ -1,17 +1,17 @@
 import { db as defaultDb } from "@/lib/db";
-import { users } from "@/lib/auth/schema";
+import { user } from "@/lib/auth/schema";
 import { handoffs } from "@/lib/handoffs/schema";
 import { newHandoffId, newUserId } from "@/lib/ids";
 import type { DB } from "@/lib/db";
 
-export async function seedUser(db: DB = defaultDb, overrides: Partial<typeof users.$inferInsert> = {}) {
+export async function seedUser(db: DB = defaultDb, overrides: Partial<typeof user.$inferInsert> = {}) {
   const row = {
     id: newUserId(),
     email: `${newUserId()}@test.local`,
     name: "Test User",
     ...overrides,
   };
-  await db.insert(users).values(row);
+  await db.insert(user).values(row);
   return row;
 }
 

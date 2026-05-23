@@ -8,6 +8,8 @@
 
 Build a single-user web service that lets AI coding agents (Claude Code, Cursor, Codex, etc.) **hand off self-contained "handoff documents" to one another**. Agent A creates a handoff describing the state of work; Agent B (another tool, another session, or the human) discovers and reads it later.
 
+The server also ships a built-in **skill** — a markdown document delivered to every connecting MCP client via the standard `instructions` field plus a `handoff://skill` resource — that teaches the AI what handoffs are, when to create one, and the `list → get → claim` discovery convention. The skill lives with the server, so agents don't need any per-tool configuration to use the service correctly.
+
 This is the minimum viable scope. Out of scope for v1 but explicitly designed-for:
 
 - Same-agent session resume (works as a side effect)
@@ -16,14 +18,16 @@ This is the minimum viable scope. Out of scope for v1 but explicitly designed-fo
 - Status workflows beyond `open / in_progress / done`
 - Multi-user / teams
 - Kanban or alternative UI layouts
+- **Editable per-user skill** — at v2, users override `DEFAULT_SKILL` from `/settings/skill`
 
 ## 2. Success criteria
 
 1. From Claude Code (or any MCP-aware tool), I can run `claude mcp add https://<my-domain>/mcp` and be walked through OAuth in a browser, ending with the agent able to call `list_handoffs` / `create_handoff` / `get_handoff` / `claim_handoff`.
-2. The same operations work over plain HTTPS with `Authorization: Bearer …` from a script or curl.
-3. I can open the web UI, log in with GitHub or magic link, browse all handoffs my agents wrote, copy an ID to share with another agent, and revoke an agent.
-4. A handoff carries: title, free-form markdown body, optional summary, status, project, tags, free-form structured metadata (git refs, files touched, etc.), `claimed_by`, timestamps.
-5. Adding blob attachments later requires no schema rewrite, no auth rewrite, no route restructure — only filling in `lib/storage/` and adding an `attachments` table + a `attach_blob` tool.
+2. On connect, the agent automatically receives the handoff skill via `instructions`, so it knows the discovery convention without any per-tool configuration. The same content is fetchable as MCP resource `handoff://skill` and as MCP prompt `handoff-help`.
+3. The same operations work over plain HTTPS with `Authorization: Bearer …` from a script or curl.
+4. I can open the web UI, log in with GitHub or magic link, browse all handoffs my agents wrote, copy an ID to share with another agent, and revoke an agent.
+5. A handoff carries: title, free-form markdown body, optional summary, status, project, tags, free-form structured metadata (git refs, files touched, etc.), `claimed_by`, timestamps.
+6. Adding blob attachments later requires no schema rewrite, no auth rewrite, no route restructure — only filling in `lib/storage/` and adding an `attachments` table + a `attach_blob` tool. Adding the editable-skill feature later requires only a new `user_skills` table and a settings page — no MCP server changes beyond the existing `getSkillFor(actor)` lookup.
 
 ## 3. Stack (all latest stable, May 2026)
 
@@ -109,7 +113,9 @@ handoff-mcp/
 │   ├── storage/
 │   │   └── index.ts                    # interface { put, signedUrl } — empty at MVP
 │   ├── mcp/
-│   │   └── tools.ts                    # MCP tool definitions
+│   │   ├── tools.ts                    # MCP tool definitions
+│   │   ├── skill.ts                    # DEFAULT_SKILL markdown + getSkillFor(actor)
+│   │   └── resources.ts                # MCP resources (handoff://skill) + prompts (handoff-help)
 │   └── log.ts                          # pino instance
 ├── db/
 │   ├── migrations/                     # drizzle-kit output (committed)
@@ -189,6 +195,18 @@ backed by a Supabase Storage bucket. **At MVP, `lib/storage/index.ts` contains o
 `HandoffSummary` = `id`, `title`, `summary`, `status`, `project`, `tags`, `claimedBy`, `updatedAt`. No `body` — keeps responses small enough that an agent can list without burning context.
 
 Each tool description teaches the discovery convention: filter `{ status: "open", claimed: false }`, read summaries, `get_handoff` the candidate, `claim_handoff` once committed.
+
+### MCP skill (server-provided instructions)
+
+The MCP `initialize` response returns `instructions` populated with the handoff skill — a markdown document explaining what handoffs are, when to create one, and the conventional flow for picking work up. The skill is the canonical source of truth for "how to use this service" and lives next to the tools.
+
+- **Source of truth:** `lib/mcp/skill.ts` exports `DEFAULT_SKILL: string` and `getSkillFor(actor: Actor): Promise<string>`. At MVP `getSkillFor` always returns `DEFAULT_SKILL`. At v2 it looks up `user_skills.content` and falls back.
+- **Surfaces:**
+  - `instructions` in `initialize` — auto-loaded by Claude Code, Cursor, etc.
+  - MCP resource `handoff://skill` (`mime: text/markdown`) — agent can re-read on demand via `resources/read`
+  - MCP prompt `handoff-help` — surfaces in MCP-aware clients as a slash command so the human can also view the skill
+
+All three call into `getSkillFor(actor)` so the content stays in one place. The skill includes the discovery convention, when-to-create guidance, and a recommended `body` structure (What was done / What's left / Open questions).
 
 ### REST API
 
@@ -306,6 +324,7 @@ CI: GitHub Actions runs `pnpm test` (vitest) + `pnpm test:e2e` (Playwright) on e
 
 ## 15. Future extensions (intentionally out-of-scope, designed-for)
 
+- **Editable per-user skill:** add `user_skills(user_id PK, content text, updated_at)` table; web route `/settings/skill` with a markdown editor + live preview; `getSkillFor(actor)` queries it and falls back to `DEFAULT_SKILL`. No MCP server changes — the surfaces already call through `getSkillFor`.
 - **Blob attachments:** add `attachments` table, fill in `lib/storage/index.ts` using Supabase Storage, add `attach_blob` / `get_blob_url` MCP tools. Web UI renders inline (images) or as download links (other).
 - **Status workflows:** extend `handoff_status` enum (`blocked`, `ready_for_review`, etc.) and add columns by enum.
 - **Kanban view:** new route `/board` that reads the same data. Layout shape is purely a UI change.

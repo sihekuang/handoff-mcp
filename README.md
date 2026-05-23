@@ -24,11 +24,10 @@ echo 'BETTER_AUTH_SECRET=any-32-byte-random-string-for-now' >> .env.local
 echo 'BETTER_AUTH_URL=http://localhost:3000' >> .env.local
 echo 'NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000' >> .env.local
 
-# 3. Install + migrate + seed
+# 3. Install + migrate
 pnpm install
 DATABASE_URL='postgresql://handoff:handoff@localhost:54330/handoff' pnpm db:migrate
-docker exec -e PGPASSWORD=handoff handoff-pg psql -U handoff -d handoff -c \
-  "INSERT INTO \"user\" (id, email, name, email_verified, created_at, updated_at) VALUES ('dev_user','dev@handoff-mcp.local','Dev User',true,NOW(),NOW()) ON CONFLICT (id) DO NOTHING;"
+# Migration 0001 seeds the dev_user actor automatically — no manual INSERT needed.
 
 # 4. Run
 pnpm dev

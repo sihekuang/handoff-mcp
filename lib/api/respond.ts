@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 import { resolveAgentActor } from "@/lib/auth/mcp";
 import { resolveWebActor } from "@/lib/auth/web";
 import { DEV_ACTOR } from "@/lib/auth/dev";
+import { log } from "@/lib/log";
 import type { Actor } from "@/lib/auth/types";
 
 const STATUS: Record<HandoffError["kind"], number> = {
@@ -28,7 +29,7 @@ export function errorResponse(e: unknown, requestId: string): NextResponse {
       { status: 422 },
     );
   }
-  console.error("unhandled error", e, { requestId });
+  log.error({ requestId, err: e }, "unhandled error");
   return NextResponse.json(
     { error: "internal", detail: "internal error", requestId },
     { status: 500 },

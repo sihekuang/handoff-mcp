@@ -7,6 +7,7 @@ import {
   type Handoff,
 } from "./schema";
 import { HandoffError } from "./errors";
+import { log } from "@/lib/log";
 import type { Actor } from "@/lib/auth/types";
 import type { DB } from "@/lib/db";
 import { ZodError } from "zod";
@@ -25,7 +26,10 @@ function fail(kind: "not_found" | "validation", detail: string): never {
 function parseOrThrow<T>(parser: { parse: (x: unknown) => T }, input: unknown): T {
   try { return parser.parse(input); }
   catch (e) {
-    if (e instanceof ZodError) throw new HandoffError("validation", e.message, { issues: e.issues });
+    if (e instanceof ZodError) {
+      log.debug({ issues: e.issues }, "service input validation failed");
+      throw new HandoffError("validation", e.message, { issues: e.issues });
+    }
     throw e;
   }
 }

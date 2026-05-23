@@ -74,3 +74,56 @@ describe("GET /api/handoffs", () => {
     expect(json.items.map((i: any) => i.title)).toEqual(["a"]);
   });
 });
+
+describe("GET /api/handoffs/[id]", () => {
+  it("returns the handoff for owner", async () => {
+    const u = await seedUser(db);
+    mockSession(u.id);
+    const { POST } = await import("@/app/api/handoffs/route");
+    const { GET } = await import("@/app/api/handoffs/[id]/route");
+    const created = await (await POST(new Request("http://localhost/api/handoffs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "t", body: "b" }),
+    }) as any)).json();
+    const res = await GET(
+      new Request(`http://localhost/api/handoffs/${created.id}`) as any,
+      { params: Promise.resolve({ id: created.id }) },
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.id).toBe(created.id);
+    vi.doUnmock("@/lib/auth/better-auth");
+    vi.doUnmock("@/lib/db");
+  });
+});
+
+describe("POST /api/handoffs/[id]/claim then DELETE", () => {
+  it("claim then release", async () => {
+    const u = await seedUser(db);
+    mockSession(u.id);
+    const { POST: createPost } = await import("@/app/api/handoffs/route");
+    const { POST: claimPost, DELETE: claimDel } = await import("@/app/api/handoffs/[id]/claim/route");
+    const created = await (await createPost(new Request("http://localhost/api/handoffs", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "t", body: "b" }),
+    }) as any)).json();
+
+    const claimed = await (await claimPost(
+      new Request(`http://localhost/api/handoffs/${created.id}/claim`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agent: "claude" }),
+      }) as any,
+      { params: Promise.resolve({ id: created.id }) },
+    )).json();
+    expect(claimed.claimedBy).toBe("claude");
+
+    const released = await (await claimDel(
+      new Request(`http://localhost/api/handoffs/${created.id}/claim`, { method: "DELETE" }) as any,
+      { params: Promise.resolve({ id: created.id }) },
+    )).json();
+    expect(released.claimedBy).toBeNull();
+    vi.doUnmock("@/lib/auth/better-auth");
+    vi.doUnmock("@/lib/db");
+  });
+});

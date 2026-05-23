@@ -4,6 +4,7 @@ import { HandoffError, isHandoffError } from "@/lib/handoffs/errors";
 import { ZodError } from "zod";
 import { resolveAgentActor } from "@/lib/auth/mcp";
 import { resolveWebActor } from "@/lib/auth/web";
+import { DEV_ACTOR } from "@/lib/auth/dev";
 import type { Actor } from "@/lib/auth/types";
 
 const STATUS: Record<HandoffError["kind"], number> = {
@@ -40,6 +41,9 @@ export async function resolveActorOr401(req: Request): Promise<Actor | NextRespo
   if (agent) return agent;
   const web = await resolveWebActor(req);
   if (web) return web;
+  // AUTH DEFERRED: fall back to the hardcoded dev actor while auth is not wired in.
+  // Remove this branch when Better Auth MCP/cookie auth is connected.
+  if (process.env.NODE_ENV !== "production") return DEV_ACTOR;
   return NextResponse.json(
     { error: "unauthorized", detail: "missing or invalid credentials" },
     { status: 401, headers: { "WWW-Authenticate": `Bearer realm="handoff-mcp"` } },

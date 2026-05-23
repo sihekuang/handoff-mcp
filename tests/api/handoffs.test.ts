@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi, afterEach } from "vitest";
 import { freshDb } from "@/tests/helpers/db";
 import { seedUser } from "@/tests/helpers/factories";
 import type { DB } from "@/lib/db";
@@ -46,13 +46,20 @@ describe("POST /api/handoffs", () => {
     expect(json.userId).toBe(u.id);
   });
 
-  it("returns 401 when no session and no Bearer", async () => {
-    mockSession(null);
+  it("returns 401 when no session and no Bearer in production mode", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/db", () => ({ db }));
+    vi.doMock("@/lib/auth/better-auth", () => ({
+      auth: { api: { getSession: async () => null, getMcpSession: async () => null } },
+    }));
+    // Stub NODE_ENV as production so the dev fallback is skipped.
+    vi.stubEnv("NODE_ENV", "production");
     const { POST } = await import("@/app/api/handoffs/route");
     const req = new Request("http://localhost/api/handoffs", {
       method: "POST", headers: { "content-type": "application/json" }, body: "{}",
     });
     const res = await POST(req as any);
+    vi.unstubAllEnvs();
     expect(res.status).toBe(401);
   });
 });

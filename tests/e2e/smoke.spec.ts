@@ -1,17 +1,31 @@
-import { test, expect } from "@playwright/test";
+// tests/e2e/smoke.spec.ts
+import { test, expect, type APIRequestContext } from "@playwright/test";
 
-test("list page shows handoffs heading and the seeded handoff", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Handoffs", level: 1 })).toBeVisible();
-  // The handoff created by Agent A should be present.
-  await expect(page.getByRole("link", { name: /Refactor session token storage/ })).toBeVisible();
+let createdId: string;
+
+test.beforeAll(async ({ request }) => {
+  const res = await request.post("http://localhost:3000/api/handoffs", {
+    data: {
+      title: "E2E smoke handoff",
+      body: "## What was done\n- Set up e2e\n## What's left\n- write more tests",
+      tags: ["smoke"],
+      metadata: { git: { branch: "smoke-branch" } },
+    },
+  });
+  expect(res.status()).toBe(201);
+  const json = await res.json();
+  createdId = json.id;
 });
 
-test("detail page renders body and git metadata", async ({ page }) => {
-  await page.goto("/h/h_9i5autiljl");
-  await expect(page.getByRole("heading", { name: "Refactor session token storage" })).toBeVisible();
-  // Body content contains "Sketched a TypedSessionStore interface"
-  await expect(page.locator("article").getByText(/Sketched a TypedSessionStore interface/)).toBeVisible();
-  // Git metadata is rendered in sidebar
-  await expect(page.getByText("feat/session-typed")).toBeVisible();
+test("list page renders the seeded handoff", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Handoffs", level: 1 })).toBeVisible();
+  await expect(page.getByRole("link", { name: /E2E smoke handoff/ })).toBeVisible();
+});
+
+test("detail page renders the body and git metadata", async ({ page }) => {
+  await page.goto(`/h/${createdId}`);
+  await expect(page.getByRole("heading", { name: "E2E smoke handoff" })).toBeVisible();
+  await expect(page.getByText(/write more tests/)).toBeVisible();
+  await expect(page.getByText(/smoke-branch/)).toBeVisible();
 });

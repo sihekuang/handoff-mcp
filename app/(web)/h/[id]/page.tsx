@@ -14,7 +14,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   try {
     const handoff = await service.get(db, DEV_ACTOR, id);
     return (
-      <div className="grid grid-cols-[1fr,320px] gap-8 max-w-6xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-8 max-w-6xl mx-auto">
         <article>
           <header className="mb-6">
             <h1 className="text-2xl font-semibold">{handoff.title}</h1>

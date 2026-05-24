@@ -17,6 +17,7 @@
   "dependencies": {
     "@base-ui/react": "^1.5.0",
     "@better-auth/cli": "^1.4.21",
+    "@electric-sql/pglite": "^0.4.5",
     "@modelcontextprotocol/sdk": "^1.26",
     "better-auth": "^1.6.11",
     "class-variance-authority": "^0.7.1",

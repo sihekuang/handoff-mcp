@@ -2,6 +2,9 @@
   "name": "handoff-mcp",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "handoff": "./bin/handoff"
+  },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "next dev",

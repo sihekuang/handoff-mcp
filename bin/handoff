@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+
+const { spawn, execSync } = require("node:child_process");
+const { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, openSync } = require("node:fs");
+const { join } = require("node:path");
+const { homedir } = require("node:os");
+
+const DATA_DIR = process.env.HANDOFF_DATA_DIR
+  ? join(process.env.HANDOFF_DATA_DIR, "..")  // parent of data/
+  : join(homedir(), ".local", "share", "handoff-mcp");
+mkdirSync(DATA_DIR, { recursive: true });
+
+const PID_FILE = join(DATA_DIR, "handoff.pid");
+const LOG_FILE = join(DATA_DIR, "handoff.log");
+const PORT = process.env.PORT || "3000";
+
+// Resolve server.js relative to this script's install location
+const INSTALL_DIR = join(__dirname, "..");
+const SERVER_JS = join(INSTALL_DIR, "server.js");
+
+const cmd = process.argv[2];
+
+function getPid() {
+  if (!existsSync(PID_FILE)) return null;
+  const pid = parseInt(readFileSync(PID_FILE, "utf8").trim(), 10);
+  try {
+    process.kill(pid, 0);
+    return pid;
+  } catch {
+    unlinkSync(PID_FILE);
+    return null;
+  }
+}
+
+function start() {
+  const existing = getPid();
+  if (existing) {
+    console.log(`handoff-mcp is already running (pid ${existing}) on port ${PORT}`);
+    return;
+  }
+
+  if (!existsSync(SERVER_JS)) {
+    console.error(`Server not found at ${SERVER_JS}`);
+    console.error("Run 'pnpm build:standalone' first, or reinstall via Homebrew.");
+    process.exit(1);
+  }
+
+  const out = openSync(LOG_FILE, "a");
+  const child = spawn("node", [SERVER_JS], {
+    detached: true,
+    stdio: ["ignore", out, out],
+    env: {
+      ...process.env,
+      PORT,
+      HOSTNAME: "127.0.0.1",
+      HANDOFF_DATA_DIR: join(DATA_DIR, "data"),
+      HANDOFF_INSTALL_DIR: INSTALL_DIR,
+    },
+  });
+
+  writeFileSync(PID_FILE, String(child.pid));
+  child.unref();
+
+  console.log(`handoff-mcp started (pid ${child.pid})`);
+  console.log(`  URL:  http://localhost:${PORT}`);
+  console.log(`  MCP:  http://localhost:${PORT}/mcp`);
+  console.log(`  Logs: ${LOG_FILE}`);
+}
+
+function stop() {
+  const pid = getPid();
+  if (!pid) {
+    console.log("handoff-mcp is not running.");
+    return;
+  }
+  process.kill(pid, "SIGTERM");
+  try { unlinkSync(PID_FILE); } catch {}
+  console.log(`handoff-mcp stopped (pid ${pid}).`);
+}
+
+function status() {
+  const pid = getPid();
+  if (pid) {
+    console.log(`handoff-mcp is running (pid ${pid}) on port ${PORT}`);
+  } else {
+    console.log("handoff-mcp is not running.");
+  }
+}
+
+function logs() {
+  if (existsSync(LOG_FILE)) {
+    execSync(`tail -f "${LOG_FILE}"`, { stdio: "inherit" });
+  } else {
+    console.log("No log file found.");
+  }
+}
+
+switch (cmd) {
+  case "start":
+    start();
+    break;
+  case "stop":
+    stop();
+    break;
+  case "status":
+    status();
+    break;
+  case "logs":
+    logs();
+    break;
+  default:
+    console.log(`handoff-mcp — AI agent handoff server
+
+Usage:
+  handoff start    Start the server in the background
+  handoff stop     Stop the server
+  handoff status   Check if the server is running
+  handoff logs     Tail the server logs
+
+Environment:
+  PORT             Server port (default: 3000)
+  HANDOFF_DATA_DIR Data directory (default: ~/.local/share/handoff-mcp)
+`);
+    break;
+}

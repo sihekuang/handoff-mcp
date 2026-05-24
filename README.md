@@ -35,6 +35,24 @@ pnpm dev
 
 Open <http://localhost:3000> to browse handoffs.
 
+## Install via Homebrew
+
+```bash
+brew tap sihekuang/handoff-mcp https://github.com/sihekuang/handoff-mcp
+brew install handoff-mcp
+
+# Start manually
+handoff start
+
+# Or run as a login service
+brew services start handoff-mcp
+
+# Stop
+handoff stop
+# or
+brew services stop handoff-mcp
+```
+
 ## Connecting an agent
 
 The MCP server is at `http://localhost:3000/mcp` (Streamable HTTP). No auth at MVP. Connect with the official MCP SDK:

@@ -55,6 +55,8 @@ function start() {
       HOSTNAME: "127.0.0.1",
       HANDOFF_DATA_DIR: join(DATA_DIR, "data"),
       HANDOFF_INSTALL_DIR: INSTALL_DIR,
+      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "handoff-mcp-local-dev-secret",
+      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || `http://localhost:${PORT}`,
     },
   });
 

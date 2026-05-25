@@ -1,8 +1,8 @@
 class HandoffMcp < Formula
   desc "AI agent handoff server — MCP + REST + web UI"
   homepage "https://github.com/sihekuang/handoff-mcp"
-  url "https://github.com/sihekuang/handoff-mcp/releases/download/v0.2.2/handoff-mcp-0.2.2.tar.gz"
-  sha256 "adba0a82e682e439bcc1e2f8a79b76625b3498f741a3e57606cb39c9a7b63567"
+  url "https://github.com/sihekuang/handoff-mcp/releases/download/v0.2.3/handoff-mcp-0.2.3.tar.gz"
+  sha256 "9737dea5f4cf39f91a06aa318fe44f8ae8afcdb1f50e2dc34960add46bb9cb1e"
   license "MIT"
 
   depends_on "node@24"

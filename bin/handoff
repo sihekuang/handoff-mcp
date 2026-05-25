@@ -12,7 +12,7 @@ mkdirSync(DATA_DIR, { recursive: true });
 
 const PID_FILE = join(DATA_DIR, "handoff.pid");
 const LOG_FILE = join(DATA_DIR, "handoff.log");
-const PORT = process.env.PORT || "3000";
+const PORT = process.env.PORT || "3007";
 
 // Resolve server.js relative to this script's install location
 const INSTALL_DIR = join(__dirname, "..");

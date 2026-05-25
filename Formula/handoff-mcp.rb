@@ -8,7 +8,7 @@ class HandoffMcp < Formula
   depends_on "node@24"
 
   def install
-    libexec.install Dir["*"]
+    libexec.install Dir["*"], Dir[".*"].reject { |f| %w[. ..].include?(f) }
     (bin/"handoff").write_env_script libexec/"bin/handoff",
       PATH: "#{Formula["node@24"].opt_bin}:$PATH"
   end

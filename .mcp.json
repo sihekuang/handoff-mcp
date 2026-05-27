@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "handoff": {
+      "url": "http://localhost:3007/mcp"
+    }
+  }
+}

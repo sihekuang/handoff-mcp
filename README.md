@@ -63,14 +63,14 @@ Requires the server running locally (`brew services start handoff-mcp` or `pnpm 
 
 ## Connecting an agent
 
-The MCP server is at `http://localhost:3000/mcp` (Streamable HTTP). No auth at MVP. Connect with the official MCP SDK:
+The MCP server is at `http://localhost:3007/mcp` (Streamable HTTP) when installed via Homebrew, or `http://localhost:3000/mcp` when running with `pnpm dev`. No auth at MVP. Connect with the official MCP SDK:
 
 ```ts
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 const client = new Client({ name: "my-agent", version: "0.1.0" });
-await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost:3000/mcp")));
+await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost:3007/mcp")));
 
 // The server's instructions field carries the handoff skill — agents
 // learn the conventions on connect.
@@ -113,3 +113,5 @@ DELETE /api/handoffs/[id]/claim
 
 - Design spec: `docs/superpowers/specs/2026-05-22-handoff-mcp-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-05-22-handoff-mcp.md`
+- Claude Code plugin spec: `docs/superpowers/specs/2026-05-27-claude-code-plugin-design.md`
+- Claude Code plugin plan: `docs/superpowers/plans/2026-05-27-claude-code-plugin.md`

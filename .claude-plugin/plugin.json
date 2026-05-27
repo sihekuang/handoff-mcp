@@ -1,0 +1,12 @@
+{
+  "name": "handoff-mcp",
+  "displayName": "Handoff",
+  "version": "0.3.0",
+  "description": "Create, browse, and claim handoff documents so agents can pick up where others left off.",
+  "author": { "name": "Daniel Lee" },
+  "repository": "https://github.com/sihekuang/handoff-mcp",
+  "license": "MIT",
+  "keywords": ["handoff", "agent", "collaboration"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

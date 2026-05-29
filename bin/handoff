@@ -163,7 +163,7 @@ Usage:
   handoff codex uninstall   Remove the handoff entry from Codex's MCP config
 
 Environment:
-  PORT             Server port (default: 3000)
+  PORT             Server port (default: 3007)
   HANDOFF_DATA_DIR Data directory (default: ~/.local/share/handoff-mcp)
 `);
     break;

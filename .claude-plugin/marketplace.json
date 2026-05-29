@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "sihekuang",
+  "description": "Daniel Lee's Claude Code plugins",
+  "owner": {
+    "name": "Daniel Lee"
+  },
+  "plugins": [
+    {
+      "name": "handoff-mcp",
+      "description": "Create, browse, and claim handoff documents so agents can pick up where others left off.",
+      "version": "0.3.0",
+      "source": "./"
+    }
+  ]
+}

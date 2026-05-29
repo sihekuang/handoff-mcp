@@ -56,7 +56,11 @@ brew services stop handoff-mcp
 ## Install as Claude Code plugin
 
 ```bash
-/plugin install handoff-mcp@sihekuang/handoff-mcp
+# 1. Add the marketplace (one time)
+/plugin marketplace add sihekuang/handoff-mcp
+
+# 2. Install the plugin
+/plugin install handoff-mcp@sihekuang
 ```
 
 Requires the server running locally (`brew services start handoff-mcp` or `pnpm dev`). The plugin adds a handoff skill and connects Claude Code to the MCP server at `http://localhost:3007/mcp`.

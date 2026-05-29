@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { spawn, execSync } = require("node:child_process");
+const { spawn, spawnSync, execSync } = require("node:child_process");
 const { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, openSync } = require("node:fs");
 const { join } = require("node:path");
 const { homedir } = require("node:os");
@@ -97,6 +97,44 @@ function logs() {
   }
 }
 
+function runCodex(args) {
+  const result = spawnSync("codex", args, { stdio: "inherit" });
+  if (result.error && result.error.code === "ENOENT") {
+    console.error("Codex CLI not found on PATH.");
+    console.error("Install it from https://developers.openai.com/codex/ and try again.");
+    process.exit(1);
+  }
+  return result.status ?? 1;
+}
+
+function codex(sub) {
+  switch (sub) {
+    case "install": {
+      const code = runCodex([
+        "mcp",
+        "add",
+        "handoff",
+        "--url",
+        `http://localhost:${PORT}/mcp`,
+      ]);
+      if (code === 0) {
+        console.log("");
+        console.log("Make sure the server is running:");
+        console.log("  handoff start   (or: brew services start handoff-mcp)");
+      }
+      process.exit(code);
+    }
+    case "uninstall": {
+      const code = runCodex(["mcp", "remove", "handoff"]);
+      process.exit(code);
+    }
+    default:
+      console.error(`Unknown codex subcommand: ${sub ?? "(none)"}`);
+      console.error("Usage: handoff codex install | handoff codex uninstall");
+      process.exit(2);
+  }
+}
+
 switch (cmd) {
   case "start":
     start();
@@ -109,6 +147,9 @@ switch (cmd) {
     break;
   case "logs":
     logs();
+    break;
+  case "codex":
+    codex(process.argv[3]);
     break;
   default:
     console.log(`handoff-mcp — AI agent handoff server

@@ -58,15 +58,14 @@ handoff codex uninstall   →  codex mcp remove handoff
 
 2. **Run:** `codex mcp add handoff --url http://localhost:${PORT}/mcp`
    - `PORT` reads from `process.env.PORT`, defaulting to `3007` — same source as the rest of the CLI.
+   - Verified behavior (Codex CLI 0.135.0, 2026-05-29): the command is idempotent — re-adding the same name silently overwrites and exits 0. There is no "already exists" error path to special-case.
 
-3. **On success:** Print:
+3. **On success (the only success path):** Codex prints `Added global MCP server 'handoff'.` and exits 0. Append our own reminder:
    ```
-   Registered handoff MCP server with Codex.
    Make sure the server is running: handoff start  (or: brew services start handoff-mcp)
    ```
-   Exit 0.
 
-4. **On any Codex failure (including "already exists"):** Surface Codex's stdout/stderr verbatim, exit with Codex's exit code. We deliberately do not try to detect the "already exists" case via stderr parsing — Codex's own error message is clear enough, and re-running install after a successful first run is not a normal flow.
+4. **On Codex failure:** Surface Codex's stdout/stderr verbatim, exit with Codex's exit code. (In practice the only realistic failure is Codex itself being broken or `~/.codex/` being unwritable — there is no "wrong arguments" path once the wrapper supplies a valid URL.)
 
 ### 2. `bin/handoff codex uninstall`
 
@@ -75,6 +74,8 @@ handoff codex uninstall   →  codex mcp remove handoff
 1. Run: `codex mcp remove handoff`.
 2. Surface stdout/stderr verbatim.
 3. Exit with Codex's exit code.
+
+Verified behavior (Codex CLI 0.135.0, 2026-05-29): `remove` is idempotent — removing a non-existent server prints `No MCP server named 'handoff' found.` and exits 0. No special-casing needed.
 
 No pre-flight needed beyond Codex-on-PATH (handled by failure passthrough).
 
@@ -132,9 +133,10 @@ Codex surfaces both the six tools and the skill to the model
 | Failure mode | Behavior |
 |---|---|
 | `codex` not on PATH | Print install link, exit 1 |
-| `codex mcp add` fails (any reason, including "already exists") | Surface its stdout/stderr verbatim, exit with its code |
+| `codex mcp add` fails (write error, broken Codex, etc.) | Surface its stdout/stderr verbatim, exit with its code |
+| Re-running install when already registered | Codex silently overwrites and exits 0; we treat as success |
 | Server not running at install time | Not our problem — Codex registers the URL regardless. Install message reminds user to start the server. |
-| `codex mcp remove` on non-existent entry | Pass through Codex's exit code (likely non-zero); surface its message |
+| `codex mcp remove` on non-existent entry | Codex prints a friendly message and exits 0; we treat as success |
 
 ## Testing
 
@@ -147,7 +149,7 @@ Manual smoke test (no automated test — we'd just be mocking `child_process.spa
 5. Run a Codex session. Verify the agent lists the six handoff tools and references the skill conventions when asked about handoffs.
 6. Run `handoff codex uninstall`. Verify `codex mcp get handoff` errors.
 
-A second smoke test for the "already installed" path: run `handoff codex install` twice; second invocation should exit with Codex's own non-zero code and surface its "already exists" message verbatim.
+A second smoke test for the idempotency path: run `handoff codex install` twice and `handoff codex uninstall` twice; all four invocations should exit 0.
 
 ## Explicitly out of scope (YAGNI)
 

@@ -155,10 +155,12 @@ switch (cmd) {
     console.log(`handoff-mcp — AI agent handoff server
 
 Usage:
-  handoff start    Start the server in the background
-  handoff stop     Stop the server
-  handoff status   Check if the server is running
-  handoff logs     Tail the server logs
+  handoff start             Start the server in the background
+  handoff stop              Stop the server
+  handoff status            Check if the server is running
+  handoff logs              Tail the server logs
+  handoff codex install     Register the MCP server with Codex CLI
+  handoff codex uninstall   Remove the handoff entry from Codex's MCP config
 
 Environment:
   PORT             Server port (default: 3000)

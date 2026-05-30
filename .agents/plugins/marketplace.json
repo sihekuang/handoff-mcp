@@ -1,0 +1,12 @@
+{
+  "name": "sihekuang",
+  "interface": { "displayName": "Daniel Lee's Codex plugins" },
+  "plugins": [
+    {
+      "name": "handoff-mcp",
+      "source": { "source": "local", "path": "./plugins/handoff-mcp" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

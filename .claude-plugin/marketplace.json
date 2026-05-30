@@ -10,7 +10,7 @@
       "name": "handoff-mcp",
       "description": "Create, browse, and claim handoff documents so agents can pick up where others left off.",
       "version": "0.3.0",
-      "source": "./"
+      "source": "./plugins/handoff-mcp"
     }
   ]
 }

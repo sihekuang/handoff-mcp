@@ -65,6 +65,18 @@ brew services stop handoff-mcp
 
 Requires the server running locally (`brew services start handoff-mcp` or `pnpm dev`). The plugin adds a handoff skill and connects Claude Code to the MCP server at `http://localhost:3007/mcp`.
 
+## Install as Codex plugin
+
+```bash
+# 1. Add the marketplace (one time)
+codex plugin marketplace add sihekuang/handoff-mcp
+
+# 2. Install the plugin
+codex plugin add handoff-mcp@sihekuang
+```
+
+Requires the server running locally (`brew services start handoff-mcp` or `pnpm dev`). The plugin registers the MCP server at `http://localhost:3007/mcp` in Codex's config and ships the handoff skill — Codex agents learn the conventions on connect. To remove: `codex plugin remove handoff-mcp@sihekuang`.
+
 ## Connecting an agent
 
 The MCP server is at `http://localhost:3007/mcp` (Streamable HTTP) when installed via Homebrew, or `http://localhost:3000/mcp` when running with `pnpm dev`. No auth at MVP. Connect with the official MCP SDK:

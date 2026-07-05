@@ -315,7 +315,7 @@ http.createServer((_req, res) => { res.writeHead(200); res.end("ok"); })
 Create `tests/cli/handoff-cli.test.ts`:
 
 ```ts
-process.env.HANDOFF_NO_DB = "1";
+import "@/tests/cli/no-db"; // must be first: skips the Postgres testcontainer without leaking the flag
 
 import { describe, it, expect, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
@@ -579,7 +579,7 @@ Add the transport-level passthrough that the local plugin config invokes. It bri
 Create `tests/cli/handoff-bridge.test.ts`. It stands up an in-process **stateless** Streamable-HTTP MCP server (SDK), then connects an SDK `Client` through the real `handoff mcp` subprocess (pointed at that server via `HANDOFF_MCP_URL`) and calls a tool.
 
 ```ts
-process.env.HANDOFF_NO_DB = "1";
+import "@/tests/cli/no-db"; // must be first: skips the Postgres testcontainer without leaking the flag
 
 import { describe, it, expect } from "vitest";
 import { createServer, type Server } from "node:http";
@@ -663,7 +663,7 @@ async function runBridge(mcpUrl) {
   const http = new StreamableHTTPClientTransport(new URL(mcpUrl));
 
   const warn = (label, e) =>
-    process.stderr.write(`[handoff mcp] ${label}: ${(e && e.message) || e}\n`);
+    process.stderr.write(`[handoff mcp] ${label}: ${(e && e.message) || String(e)}\n`);
 
   stdio.onmessage = (m) => { http.send(m).catch((e) => warn("upstream send", e)); };
   http.onmessage = (m) => { stdio.send(m).catch((e) => warn("downstream send", e)); };
@@ -681,6 +681,12 @@ async function runBridge(mcpUrl) {
 
   await http.start();   // Transport contract: start() before send()
   await stdio.start();
+
+  // StdioServerTransport only listens for stdin 'data'/'error' — it never
+  // surfaces EOF. Watch stdin directly so the bridge self-terminates when the
+  // client disconnects (ends stdin), instead of lingering until SIGTERM.
+  process.stdin.on("end", shutdown);
+  process.stdin.on("close", shutdown);
 }
 
 module.exports = { runBridge };
@@ -761,10 +767,13 @@ In `README.md`:
 - Add a **Remote / hosted** subsection: `claude mcp add --transport http handoff https://<your-host>/mcp`, and a warning that a public deployment must enable auth (better-auth) first — the server is unauthenticated at MVP (see `docs/decisions.md` and the spec's "Remote deployment prerequisite").
 - Keep `pnpm dev` docs (still port 3000 for app development).
 
-- [ ] **Step 5: Full test + lint gate**
+- [ ] **Step 5: Full test + scoped lint gate**
 
-Run: `pnpm test && pnpm lint`
-Expected: all tests pass; lint clean.
+Run: `pnpm test`
+Expected: all tests pass.
+
+Run (scoped — the repo has ~58 pre-existing lint errors unrelated to this work; do NOT fix those): `pnpm exec eslint "bin/**/*.js" tests/cli/`
+Expected: no errors in our files (the `bin/**/*.js` eslint override added in Task 1 keeps the CJS bin scripts clean).
 
 - [ ] **Step 6: Commit**
 

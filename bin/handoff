@@ -1,127 +1,166 @@
 #!/usr/bin/env node
+"use strict";
 
 const { spawn, execSync } = require("node:child_process");
-const { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, openSync } = require("node:fs");
+const { existsSync, openSync } = require("node:fs");
 const { join } = require("node:path");
 const { homedir } = require("node:os");
+const {
+  findFreePort, waitForPort, writeState, clearState,
+  getLiveState, resolveUrls, acquireStartLock, releaseStartLock,
+} = require("./handoff-lib.js");
 
 const DATA_DIR = process.env.HANDOFF_DATA_DIR
-  ? join(process.env.HANDOFF_DATA_DIR, "..")  // parent of data/
+  ? join(process.env.HANDOFF_DATA_DIR, "..")
   : join(homedir(), ".local", "share", "handoff-mcp");
-mkdirSync(DATA_DIR, { recursive: true });
+require("node:fs").mkdirSync(DATA_DIR, { recursive: true });
 
-const PID_FILE = join(DATA_DIR, "handoff.pid");
 const LOG_FILE = join(DATA_DIR, "handoff.log");
-const PORT = process.env.PORT || "3007";
-
-// Resolve server.js relative to this script's install location
 const INSTALL_DIR = join(__dirname, "..");
-const SERVER_JS = join(INSTALL_DIR, "server.js");
+const SERVER_JS = process.env.HANDOFF_SERVER_JS || join(INSTALL_DIR, "server.js");
 
-const cmd = process.argv[2];
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function getPid() {
-  if (!existsSync(PID_FILE)) return null;
-  const pid = parseInt(readFileSync(PID_FILE, "utf8").trim(), 10);
-  try {
-    process.kill(pid, 0);
-    return pid;
-  } catch {
-    unlinkSync(PID_FILE);
-    return null;
+async function startServer({ quiet } = {}) {
+  const log = quiet ? () => {} : console.log;
+  const existing = getLiveState(DATA_DIR);
+  if (existing && existing.port) {
+    log(`handoff-mcp is already running (pid ${existing.pid}) on port ${existing.port}`);
+    return existing;
   }
-}
-
-function start() {
-  const existing = getPid();
-  if (existing) {
-    console.log(`handoff-mcp is already running (pid ${existing}) on port ${PORT}`);
-    return;
-  }
-
   if (!existsSync(SERVER_JS)) {
-    console.error(`Server not found at ${SERVER_JS}`);
-    console.error("Run 'pnpm build:standalone' first, or reinstall via Homebrew.");
-    process.exit(1);
+    throw new Error(
+      `Server not found at ${SERVER_JS}. Run 'pnpm build:standalone' first, or reinstall via Homebrew.`,
+    );
   }
-
+  const port = process.env.PORT ? Number(process.env.PORT) : await findFreePort();
   const out = openSync(LOG_FILE, "a");
   const child = spawn("node", [SERVER_JS], {
     detached: true,
     stdio: ["ignore", out, out],
     env: {
       ...process.env,
-      PORT,
+      PORT: String(port),
       HOSTNAME: "127.0.0.1",
       HANDOFF_DATA_DIR: join(DATA_DIR, "data"),
       HANDOFF_INSTALL_DIR: INSTALL_DIR,
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "handoff-mcp-local-dev-secret",
-      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || `http://localhost:${PORT}`,
+      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || `http://localhost:${port}`,
     },
   });
-
-  writeFileSync(PID_FILE, String(child.pid));
   child.unref();
 
-  console.log(`handoff-mcp started (pid ${child.pid})`);
-  console.log(`  URL:  http://localhost:${PORT}`);
-  console.log(`  MCP:  http://localhost:${PORT}/mcp`);
+  const up = await waitForPort(port);
+  if (!up) {
+    try { process.kill(child.pid); } catch {}
+    throw new Error(`Server did not become reachable on port ${port}; see ${LOG_FILE}`);
+  }
+  const state = { pid: child.pid, port, startedAt: new Date().toISOString() };
+  writeState(DATA_DIR, state);
+  return state;
+}
+
+// Ensure a server is running without printing to stdout (safe for `mcp` mode).
+async function ensureServer() {
+  let s = getLiveState(DATA_DIR);
+  if (s && s.port) return s;
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    if (acquireStartLock(DATA_DIR)) {
+      try {
+        s = getLiveState(DATA_DIR);
+        if (s && s.port) return s;
+        return await startServer({ quiet: true });
+      } finally { releaseStartLock(DATA_DIR); }
+    }
+    await delay(200);
+    s = getLiveState(DATA_DIR);
+    if (s && s.port) return s;
+  }
+  throw new Error("Timed out waiting for the handoff server to start");
+}
+
+async function start() {
+  const s = await startServer({});
+  const { baseUrl, mcpUrl } = resolveUrls(s.port);
+  console.log(`handoff-mcp started (pid ${s.pid})`);
+  console.log(`  URL:  ${baseUrl}`);
+  console.log(`  MCP:  ${mcpUrl}`);
   console.log(`  Logs: ${LOG_FILE}`);
 }
 
 function stop() {
-  const pid = getPid();
-  if (!pid) {
-    console.log("handoff-mcp is not running.");
-    return;
-  }
-  process.kill(pid, "SIGTERM");
-  try { unlinkSync(PID_FILE); } catch {}
-  console.log(`handoff-mcp stopped (pid ${pid}).`);
+  const s = getLiveState(DATA_DIR);
+  if (!s) { console.log("handoff-mcp is not running."); return; }
+  try { process.kill(s.pid, "SIGTERM"); } catch {}
+  clearState(DATA_DIR);
+  console.log(`handoff-mcp stopped (pid ${s.pid}).`);
 }
 
 function status() {
-  const pid = getPid();
-  if (pid) {
-    console.log(`handoff-mcp is running (pid ${pid}) on port ${PORT}`);
+  const s = getLiveState(DATA_DIR);
+  if (s) {
+    console.log(`handoff-mcp is running (pid ${s.pid}) on port ${s.port ?? "unknown (restart to refresh)"}`);
   } else {
     console.log("handoff-mcp is not running.");
   }
 }
 
-function logs() {
-  if (existsSync(LOG_FILE)) {
-    execSync(`tail -f "${LOG_FILE}"`, { stdio: "inherit" });
-  } else {
-    console.log("No log file found.");
+function url(json) {
+  const s = getLiveState(DATA_DIR);
+  if (!s || !s.port) {
+    console.error("handoff-mcp is not running (no port to report). Run 'handoff start' or 'handoff mcp'.");
+    process.exit(1);
   }
+  const urls = resolveUrls(s.port);
+  console.log(json ? JSON.stringify(urls) : urls.mcpUrl);
 }
 
-switch (cmd) {
-  case "start":
-    start();
-    break;
-  case "stop":
-    stop();
-    break;
-  case "status":
-    status();
-    break;
-  case "logs":
-    logs();
-    break;
-  default:
-    console.log(`handoff-mcp — AI agent handoff server
+async function mcp() {
+  // stdout is reserved for MCP JSON-RPC — never console.log here.
+  const { runBridge } = require("./handoff-bridge.js");
+  const target = process.env.HANDOFF_MCP_URL || resolveUrls((await ensureServer()).port).mcpUrl;
+  await runBridge(target);
+}
+
+function logs() {
+  if (existsSync(LOG_FILE)) execSync(`tail -f "${LOG_FILE}"`, { stdio: "inherit" });
+  else console.log("No log file found.");
+}
+
+function help() {
+  console.log(`handoff-mcp — AI agent handoff server
 
 Usage:
-  handoff start    Start the server in the background
+  handoff start    Start the server in the background (auto-selects a free port)
   handoff stop     Stop the server
-  handoff status   Check if the server is running
+  handoff status   Check if the server is running and on which port
+  handoff url      Print the MCP endpoint URL (--json for machine output)
+  handoff mcp      Bridge stdio to the local server (used by MCP clients)
   handoff logs     Tail the server logs
 
 Environment:
-  PORT             Server port (default: 3000)
+  PORT             Pin the server port (default: auto-selected free port)
   HANDOFF_DATA_DIR Data directory (default: ~/.local/share/handoff-mcp)
+  HANDOFF_MCP_URL  For 'mcp': bridge to this URL instead of auto-starting locally
 `);
-    break;
 }
+
+async function main() {
+  const cmd = process.argv[2];
+  switch (cmd) {
+    case "start": await start(); break;
+    case "stop": stop(); break;
+    case "status": status(); break;
+    case "url": url(process.argv.includes("--json")); break;
+    case "mcp": await mcp(); break;
+    case "logs": logs(); break;
+    default: help(); break;
+  }
+}
+
+if (require.main === module) {
+  main().catch((e) => { console.error(e.message || e); process.exit(1); });
+}
+
+module.exports = { startServer, ensureServer, DATA_DIR, LOG_FILE, SERVER_JS };

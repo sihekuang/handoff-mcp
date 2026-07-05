@@ -14,7 +14,7 @@ async function runBridge(mcpUrl) {
   const http = new StreamableHTTPClientTransport(new URL(mcpUrl));
 
   const warn = (label, e) =>
-    process.stderr.write(`[handoff mcp] ${label}: ${(e && e.message) || e}\n`);
+    process.stderr.write(`[handoff mcp] ${label}: ${(e && e.message) || String(e)}\n`);
 
   stdio.onmessage = (m) => { http.send(m).catch((e) => warn("upstream send", e)); };
   http.onmessage = (m) => { stdio.send(m).catch((e) => warn("downstream send", e)); };
@@ -32,6 +32,12 @@ async function runBridge(mcpUrl) {
 
   await http.start();   // Transport contract: start() before send()
   await stdio.start();
+
+  // StdioServerTransport only listens for stdin 'data'/'error' — it never
+  // surfaces EOF. Watch stdin directly so the bridge self-terminates when the
+  // client disconnects (ends stdin), instead of lingering until SIGTERM.
+  process.stdin.on("end", shutdown);
+  process.stdin.on("close", shutdown);
 }
 
 module.exports = { runBridge };

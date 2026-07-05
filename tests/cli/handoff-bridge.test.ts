@@ -3,6 +3,7 @@ import "@/tests/cli/no-db"; // must be first: skips the Postgres testcontainer w
 import { describe, it, expect } from "vitest";
 import { createServer, type Server } from "node:http";
 import { resolve } from "node:path";
+import { spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -50,7 +51,26 @@ describe("handoff mcp bridge", () => {
       expect(JSON.stringify(result)).toContain("pong");
     } finally {
       await client.close();
-      server.close();
+      await new Promise<void>((r) => server.close(() => r()));
     }
   }, 30_000);
+
+  it("self-terminates when the client ends stdin (no external kill)", async () => {
+    const { server, port } = await buildMcpHttpServer();
+    const child = spawn("node", [resolve("bin/handoff"), "mcp"], {
+      env: { ...process.env, HANDOFF_MCP_URL: `http://127.0.0.1:${port}/mcp`, HANDOFF_NO_DB: "1" },
+      stdio: ["pipe", "ignore", "ignore"],
+    });
+    // let the bridge bring up both transports
+    await new Promise((r) => setTimeout(r, 600));
+    const exited = new Promise<number>((res) => child.on("exit", (code) => res(code ?? -1)));
+    child.stdin!.end(); // client disconnects by ending stdin
+    const winner = await Promise.race([
+      exited,
+      new Promise<"timeout">((res) => setTimeout(() => res("timeout"), 2000)),
+    ]);
+    if (winner === "timeout") child.kill("SIGKILL"); // avoid leaking a hung process
+    await new Promise<void>((r) => server.close(() => r()));
+    expect(winner).not.toBe("timeout"); // must self-exit well before the SDK's 2s SIGTERM fallback
+  }, 15000);
 });

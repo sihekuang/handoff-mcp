@@ -44,8 +44,10 @@ function readState(dir) {
   }
   const lf = join(dir, LEGACY);
   if (existsSync(lf)) {
-    const pid = parseInt(readFileSync(lf, "utf8").trim(), 10);
-    if (!Number.isNaN(pid)) return { pid, port: null };
+    try {
+      const pid = parseInt(readFileSync(lf, "utf8").trim(), 10);
+      if (!Number.isNaN(pid)) return { pid, port: null };
+    } catch { return null; }
   }
   return null;
 }

@@ -1,10 +1,9 @@
-process.env.HANDOFF_NO_DB = "1"; // must be set before setup.ts beforeAll runs
+import "@/tests/cli/no-db";
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createConnection } from "node:net";
 import {
   findFreePort, waitForPort, readState, writeState, clearState,
   getLiveState, resolveUrls, acquireStartLock, releaseStartLock,

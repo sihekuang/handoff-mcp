@@ -63,7 +63,9 @@ brew services stop handoff-mcp
 /plugin install handoff-mcp@sihekuang
 ```
 
-Requires the server running locally (`brew services start handoff-mcp` or `pnpm dev`). The plugin adds a handoff skill and connects Claude Code to the MCP server at `http://localhost:3007/mcp`.
+The plugin connects via `handoff mcp` (stdio) — no port to configure. It
+auto-starts the server on first use if one isn't already running (see
+[Local (plugin)](#local-plugin) below).
 
 ## Install as Codex plugin
 
@@ -75,18 +77,71 @@ codex plugin marketplace add sihekuang/handoff-mcp
 codex plugin add handoff-mcp@sihekuang
 ```
 
-Requires the server running locally (`brew services start handoff-mcp` or `pnpm dev`). The plugin registers the MCP server at `http://localhost:3007/mcp` in Codex's config and ships the handoff skill — Codex agents learn the conventions on connect. To remove: `codex plugin remove handoff-mcp@sihekuang`.
+The plugin connects the same way as the Claude Code plugin: via `handoff mcp`
+(stdio), reading the shared `./.mcp.json` — no port to configure, and the
+server auto-starts on first use. To remove: `codex plugin remove
+handoff-mcp@sihekuang`.
 
 ## Connecting an agent
 
-The MCP server is at `http://localhost:3007/mcp` (Streamable HTTP) when installed via Homebrew, or `http://localhost:3000/mcp` when running with `pnpm dev`. No auth at MVP. Connect with the official MCP SDK:
+The server auto-selects a free port on every `handoff start` (or first
+`handoff mcp` bridge). Don't hardcode a port — discover it instead:
+
+```bash
+handoff url          # prints the MCP endpoint, e.g. http://localhost:54321/mcp
+handoff url --json   # {"port":54321,"baseUrl":"...","mcpUrl":"..."}
+handoff status       # prints the port of the running server, if any
+```
+
+No auth at MVP. There are two supported ways to connect, depending on where
+the client and server live:
+
+### Local (plugin)
+
+The bundled plugin config (`plugins/handoff-mcp/.mcp.json`) uses the stdio
+transport:
+
+```json
+{
+  "mcpServers": {
+    "handoff": {
+      "command": "handoff",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+`handoff mcp` bridges stdio↔HTTP to a local server, auto-starting it if one
+isn't already running. No port configuration is needed — this is what the
+Claude Code and Codex plugins use out of the box.
+
+### Remote / hosted
+
+For a server running on another host, connect directly over Streamable HTTP
+instead of the stdio bridge:
+
+```bash
+claude mcp add --transport http handoff https://<your-host>/mcp
+```
+
+> **Before exposing a remote endpoint:** this server is unauthenticated at
+> MVP (hardcoded `dev_user` actor — see the "What's deferred" section
+> below). A publicly-reachable `/mcp` endpoint **must** wire up `better-auth`
+> first, or anyone can read/write handoffs. See `docs/decisions.md` and the
+> design spec's ["Remote deployment
+> prerequisite"](docs/superpowers/specs/2026-07-05-auto-port-and-mcp-transport-design.md#remote-deployment-prerequisite).
+> Do not deploy the remote path publicly until that gate is closed.
+
+Connecting with the official MCP SDK directly (e.g. from your own agent
+code), against whichever endpoint `handoff url` reports:
 
 ```ts
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 const client = new Client({ name: "my-agent", version: "0.1.0" });
-await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost:3007/mcp")));
+await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost:54321/mcp")));
 
 // The server's instructions field carries the handoff skill — agents
 // learn the conventions on connect.
@@ -98,6 +153,11 @@ await client.callTool({ name: "create_handoff", arguments: { title, body, ... } 
 The six tools: `create_handoff`, `list_handoffs`, `get_handoff`, `update_handoff`, `claim_handoff`, `release_handoff`. The discovery convention (in `lib/mcp/skill.ts`): `list_handoffs({ status: "open", claimed: false })` → `get_handoff({ id })` → `claim_handoff({ id, agent })`.
 
 There's also a `handoff://skill` resource (markdown) and a `handoff-help` prompt.
+
+`pnpm dev` still serves the app on port 3000 (fixed, for local app
+development) — the auto-port behavior above applies to `handoff start` /
+`handoff mcp` (the Homebrew-installed CLI and the standalone build), not to
+`next dev`.
 
 ## REST API mirror
 

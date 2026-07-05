@@ -16,7 +16,7 @@
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "build:standalone": "next build && cp -r public .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r db .next/standalone/db && cp -r bin .next/standalone/bin"
+    "build:standalone": "next build && cp -r public .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r db .next/standalone/db && cp -r bin .next/standalone/bin && cp -r node_modules/@modelcontextprotocol .next/standalone/node_modules/"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

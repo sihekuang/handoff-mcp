@@ -2,6 +2,7 @@ import "@/tests/cli/no-db"; // must be first: skips the Postgres testcontainer w
 
 import { describe, it, expect } from "vitest";
 import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -27,7 +28,7 @@ function buildMcpHttpServer(): Promise<{ server: Server; port: number }> {
   });
   return new Promise((resolveP) => {
     httpServer.listen(0, "127.0.0.1", () => {
-      resolveP({ server: httpServer, port: (httpServer.address() as any).port });
+      resolveP({ server: httpServer, port: (httpServer.address() as AddressInfo).port });
     });
   });
 }
@@ -47,7 +48,7 @@ describe("handoff mcp bridge", () => {
     const client = new Client({ name: "test-client", version: "0.0.0" });
     try {
       await client.connect(transport);
-      const result: any = await client.callTool({ name: "ping", arguments: {} });
+      const result = await client.callTool({ name: "ping", arguments: {} });
       expect(JSON.stringify(result)).toContain("pong");
     } finally {
       await client.close();

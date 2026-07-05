@@ -14,7 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
   ]),
   {
-    files: ["bin/**/*.js"],
+    files: ["bin/**/*.js", "tests/cli/fixtures/**/*.js"],
     languageOptions: {
       sourceType: "commonjs",
       globals: { require: "readonly", module: "readonly", process: "readonly", __dirname: "readonly", console: "readonly", URL: "readonly", setTimeout: "readonly" },

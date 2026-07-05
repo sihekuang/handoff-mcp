@@ -23,41 +23,68 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function startServer({ quiet } = {}) {
   const log = quiet ? () => {} : console.log;
+
   const existing = getLiveState(DATA_DIR);
   if (existing && existing.port) {
     log(`handoff-mcp is already running (pid ${existing.pid}) on port ${existing.port}`);
     return existing;
   }
+  // Legacy pre-upgrade server (handoff.pid, no recorded port) still alive:
+  // stop it so we can start a fresh instance that records its port.
+  if (existing && existing.pid) {
+    try { process.kill(existing.pid, "SIGTERM"); } catch {}
+    clearState(DATA_DIR);
+  }
+
   if (!existsSync(SERVER_JS)) {
     throw new Error(
       `Server not found at ${SERVER_JS}. Run 'pnpm build:standalone' first, or reinstall via Homebrew.`,
     );
   }
-  const port = process.env.PORT ? Number(process.env.PORT) : await findFreePort();
-  const out = openSync(LOG_FILE, "a");
-  const child = spawn("node", [SERVER_JS], {
-    detached: true,
-    stdio: ["ignore", out, out],
-    env: {
-      ...process.env,
-      PORT: String(port),
-      HOSTNAME: "127.0.0.1",
-      HANDOFF_DATA_DIR: join(DATA_DIR, "data"),
-      HANDOFF_INSTALL_DIR: INSTALL_DIR,
-      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "handoff-mcp-local-dev-secret",
-      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || `http://localhost:${port}`,
-    },
-  });
-  child.unref();
 
-  const up = await waitForPort(port);
-  if (!up) {
+  const pinned = !!process.env.PORT;
+  const attempts = pinned ? 1 : 5;
+  const out = openSync(LOG_FILE, "a");
+
+  for (let i = 0; i < attempts; i++) {
+    const port = pinned ? Number(process.env.PORT) : await findFreePort();
+    const child = spawn("node", [SERVER_JS], {
+      detached: true,
+      stdio: ["ignore", out, out],
+      env: {
+        ...process.env,
+        PORT: String(port),
+        HOSTNAME: "127.0.0.1",
+        HANDOFF_DATA_DIR: join(DATA_DIR, "data"),
+        HANDOFF_INSTALL_DIR: INSTALL_DIR,
+        BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "handoff-mcp-local-dev-secret",
+        BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || `http://localhost:${port}`,
+      },
+    });
+    child.unref();
+    let exited = false;
+    child.once("exit", () => { exited = true; });
+
+    // Give the child a moment to fail fast on a bind error (EADDRINUSE) so we
+    // don't mistake a foreign listener already on this port for our server.
+    await delay(300);
+    if (!exited && child.exitCode === null) {
+      const up = await waitForPort(port);
+      if (up && !exited && child.exitCode === null) {
+        const state = { pid: child.pid, port, startedAt: new Date().toISOString() };
+        writeState(DATA_DIR, state);
+        return state;
+      }
+    }
     try { process.kill(child.pid); } catch {}
-    throw new Error(`Server did not become reachable on port ${port}; see ${LOG_FILE}`);
+    // pinned: retrying the same taken port is pointless; auto: try another free port
   }
-  const state = { pid: child.pid, port, startedAt: new Date().toISOString() };
-  writeState(DATA_DIR, state);
-  return state;
+
+  throw new Error(
+    pinned
+      ? `Server failed to start on PORT=${process.env.PORT} (port already in use?); see ${LOG_FILE}`
+      : `Server failed to become reachable after ${attempts} attempts; see ${LOG_FILE}`,
+  );
 }
 
 // Ensure a server is running without printing to stdout (safe for `mcp` mode).

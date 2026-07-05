@@ -1,4 +1,4 @@
-// One Postgres container per test process (forks pool, singleFork=true).
+// One Postgres container per test file (forks pool). Skipped when HANDOFF_NO_DB is set (CLI tests).
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { afterAll, beforeAll } from "vitest";
 

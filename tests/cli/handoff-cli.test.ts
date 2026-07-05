@@ -9,6 +9,7 @@ import { readState } from "@/bin/handoff-lib.js";
 
 const BIN = resolve("bin/handoff");
 const FAKE = resolve("tests/cli/fixtures/fake-server.js");
+const DEAD = resolve("tests/cli/fixtures/dead-server.js");
 let root: string;
 
 function run(args: string[], env: Record<string, string> = {}) {
@@ -48,6 +49,23 @@ describe("handoff CLI", () => {
     expect(status).toMatch(new RegExp(`port ${state.port}`));
 
     run(["stop"]);
+    expect(existsSync(join(root, "handoff.json"))).toBe(false);
+  });
+
+  it("honors an explicit PORT", async () => {
+    root = mkdtempSync(join(tmpdir(), "handoff-cli-pin-"));
+    const { findFreePort } = await import("@/bin/handoff-lib.js");
+    const pinned = await findFreePort();
+    run(["start"], { PORT: String(pinned) });
+    const state = readState(root)!;
+    expect(state.port).toBe(pinned);
+  });
+
+  it("does not write state when the server fails to start", async () => {
+    root = mkdtempSync(join(tmpdir(), "handoff-cli-fail-"));
+    const { findFreePort } = await import("@/bin/handoff-lib.js");
+    const pinned = await findFreePort();
+    expect(() => run(["start"], { PORT: String(pinned), HANDOFF_SERVER_JS: DEAD })).toThrow();
     expect(existsSync(join(root, "handoff.json"))).toBe(false);
   });
 });

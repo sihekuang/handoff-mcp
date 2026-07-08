@@ -10,7 +10,41 @@ mirrored REST API, and a minimal browse/manage web UI.
 > Better Auth wiring is built but not connected. UI is read-only at this
 > stage (list + detail).
 
-## Quick start (local)
+## Get started (Homebrew + Claude Code)
+
+The fastest path to a working handoff server wired into Claude Code — no port
+config, no Postgres to run (the packaged CLI uses an embedded database):
+
+```bash
+# 1. Install the CLI (macOS / Linux)
+brew tap sihekuang/handoff-mcp https://github.com/sihekuang/handoff-mcp
+brew install handoff-mcp
+
+# 2. Add + install the Claude Code plugin (run these in Claude Code)
+/plugin marketplace add sihekuang/handoff-mcp
+/plugin install handoff-mcp@sihekuang
+```
+
+**Verify it works** (one paste — starts the server, checks it, then leaves it running):
+
+```bash
+handoff start                                                              # -> "handoff-mcp started … MCP: http://localhost:<port>/mcp"
+handoff status                                                             # -> "running (pid …) on port <port>"
+curl -s -o /dev/null -w 'server: %{http_code}\n' "$(handoff url | sed 's#/mcp##')"   # -> server: 200
+```
+
+Then, in Claude Code, ask it to **"list open handoffs"** — the plugin's tools
+connect automatically. (The plugin auto-starts the server via `handoff mcp` on
+first use, so `handoff start` above is only for the manual check; use `handoff
+stop` to shut it down.)
+
+Using **Codex** instead? See [Install as Codex plugin](#install-as-codex-plugin).
+Want to **hack on the app itself**? See [Local development](#local-development).
+
+## Local development
+
+For working on the app itself — runs the Next dev server on a fixed port 3000
+(the auto-port behavior applies to the packaged `handoff` CLI, not `next dev`):
 
 ```bash
 # 1. Start a local Postgres

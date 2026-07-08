@@ -37,10 +37,17 @@ export const db = drizzle(client);
 const installDir = process.env.HANDOFF_INSTALL_DIR || process.cwd();
 const migrationsDir = join(installDir, "db", "migrations");
 
-export const migrationReady: Promise<void> = migratePglite(
-  client,
-  migrationsDir,
-).catch((err) => {
-  console.error("[db-pglite] migration failed:", err);
-  process.exit(1);
-});
+// During `next build`, static-page generation runs in parallel worker
+// processes that each evaluate this module. Driving the WASM migration there
+// makes concurrent PGlite instances on the same data dir abort
+// ("PGlite failed to initialize properly" / RuntimeError: Aborted). Migrations
+// are a runtime concern, so skip them during the build phase — no page should
+// query the database at build time.
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+export const migrationReady: Promise<void> = isBuildPhase
+  ? Promise.resolve()
+  : migratePglite(client, migrationsDir).catch((err) => {
+      console.error("[db-pglite] migration failed:", err);
+      process.exit(1);
+    });
